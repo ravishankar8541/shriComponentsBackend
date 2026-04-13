@@ -1,9 +1,13 @@
 const Inquiry = require('../models/Inquiry');
-const SibApiV3Sdk = require('@sendinblue/client');
+const nodemailer = require('nodemailer');
 
-// Setup Brevo Client
-const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
-apiInstance.setApiKey(SibApiV3Sdk.ApiClient.instance.authentications['api-key'], process.env.BREVO_API_KEY);
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+    }
+});
 
 exports.addInquiry = async (req, res) => {
     try {
@@ -16,7 +20,6 @@ exports.addInquiry = async (req, res) => {
             });
         }
 
-        // Save to Database
         const newInquiry = await Inquiry.create({
             name,
             email,
@@ -25,19 +28,13 @@ exports.addInquiry = async (req, res) => {
             message
         });
 
-        // ================== Send Email via Brevo ==================
-        const emailData = {
-            sender: {
-                name: "Shri Components",
-                email: "noreply@shricomponents.com"   // ← Must be verified in Brevo
-            },
-            to: [{
-                email: process.env.RECEIVER_EMAIL,   // Your email where you want to receive inquiries
-                name: "Shri Components Admin"
-            }],
-            replyTo: { email: email, name: name },
+        // Email Notification
+        const mailOptions = {
+            from: `"Shri Components" <${process.env.EMAIL_USER}>`,
+            to: process.env.RECEIVER_EMAIL,
+            replyTo: email,
             subject: `New Inquiry: ${subject}`,
-            htmlContent: `
+            html: `
                 <h2>New Contact Inquiry Received</h2>
                 <p><strong>Name:</strong> ${name}</p>
                 <p><strong>Email:</strong> ${email}</p>
@@ -51,13 +48,9 @@ exports.addInquiry = async (req, res) => {
             `
         };
 
-        // Send Email (don't stop if email fails)
-        try {
-            await apiInstance.sendTransacEmail(emailData);
-            console.log("✅ Email sent successfully via Brevo");
-        } catch (emailError) {
-            console.error("❌ Brevo Email Failed:", emailError);
-        }
+        await transporter.sendMail(mailOptions).catch(err => {
+            console.error("Email notification failed:", err);
+        });
 
         res.status(201).json({
             success: true,
@@ -97,18 +90,29 @@ exports.updateInquiryStatus = async (req, res) => {
     }
 };
 
+
+
 exports.deleteInquiry = async (req, res) => {
     try {
         const { id } = req.params;
         const deletedInquiry = await Inquiry.findByIdAndDelete(id);
 
         if (!deletedInquiry) {
-            return res.status(404).json({ success: false, message: "Inquiry not found" });
+            return res.status(404).json({ 
+                success: false, 
+                message: "Inquiry not found" 
+            });
         }
 
-        res.json({ success: true, message: "Inquiry deleted successfully" });
+        res.json({ 
+            success: true, 
+            message: "Inquiry deleted successfully" 
+        });
     } catch (error) {
         console.error("Delete Error:", error);
-        res.status(500).json({ success: false, message: "Failed to delete inquiry" });
+        res.status(500).json({ 
+            success: false, 
+            message: "Failed to delete inquiry" 
+        });
     }
 };
