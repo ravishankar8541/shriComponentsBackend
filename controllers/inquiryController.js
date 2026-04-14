@@ -1,6 +1,13 @@
 const Inquiry = require('../models/Inquiry');
+const nodemailer = require('nodemailer');
 
-// Nodemailer removed as Web3Forms will handle the email delivery
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+    }
+});
 
 exports.addInquiry = async (req, res) => {
     try {
@@ -13,7 +20,6 @@ exports.addInquiry = async (req, res) => {
             });
         }
 
-        // 1. Save to MongoDB (Keeping your existing logic)
         const newInquiry = await Inquiry.create({
             name,
             email,
@@ -22,31 +28,29 @@ exports.addInquiry = async (req, res) => {
             message
         });
 
-        // 2. Email Notification via Web3Forms API
-        // This is called from the backend so it remains hidden from the user
-        try {
-            await fetch("https://api.web3forms.com/submit", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Accept: "application/json",
-                },
-                body: JSON.stringify({
-                    access_key: "07908e2d-6bbd-4414-9cc0-b93ad07a1a14",
-                    name: name,
-                    email: email,
-                    subject: `New Inquiry: ${subject}`,
-                    phone: phone || "Not provided",
-                    message: message,
-                    from_name: "Shri Components Portal",
-                    // Web3Forms will send this to the email associated with your access key
-                }),
-            });
-        } catch (mailError) {
-            // We log the error but still send a success response to the user 
-            // because the data was successfully saved to your MongoDB.
-            console.error("Web3Forms Email Notification failed:", mailError);
-        }
+        // Email Notification
+        const mailOptions = {
+            from: `"Shri Components" <${process.env.EMAIL_USER}>`,
+            to: process.env.RECEIVER_EMAIL,
+            replyTo: email,
+            subject: `New Inquiry: ${subject}`,
+            html: `
+                <h2>New Contact Inquiry Received</h2>
+                <p><strong>Name:</strong> ${name}</p>
+                <p><strong>Email:</strong> ${email}</p>
+                <p><strong>Phone:</strong> ${phone || 'Not provided'}</p>
+                <p><strong>Subject:</strong> ${subject}</p>
+                <hr>
+                <p><strong>Message:</strong></p>
+                <p style="white-space: pre-wrap;">${message}</p>
+                <br>
+                <small>Received on: ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}</small>
+            `
+        };
+
+        await transporter.sendMail(mailOptions).catch(err => {
+            console.error("Email notification failed:", err);
+        });
 
         res.status(201).json({
             success: true,
@@ -61,8 +65,6 @@ exports.addInquiry = async (req, res) => {
         });
     }
 };
-
-// --- Rest of your functions remain exactly the same ---
 
 exports.getInquiries = async (req, res) => {
     try {
@@ -87,6 +89,8 @@ exports.updateInquiryStatus = async (req, res) => {
         res.status(500).json({ success: false, message: "Failed to update status" });
     }
 };
+
+
 
 exports.deleteInquiry = async (req, res) => {
     try {
