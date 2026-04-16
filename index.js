@@ -9,11 +9,13 @@ const dbConnection = require('./config/db');
 const productRoutes = require('./routes/productRoutes');
 const contactRoutes = require('./routes/contactRoutes');
 
+/*
 // Create uploads folder if it doesn't exist
 const uploadDir = 'uploads/';
 if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
 }
+*/
 
 
 dbConnection();

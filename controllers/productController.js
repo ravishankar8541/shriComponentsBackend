@@ -10,13 +10,11 @@ const getAllProducts = async (req, res) => {
   }
 };
 
-// 2. Get Single Product (Moved outside so it is globally accessible)
+// 2. Get Single Product
 const getProductById = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id);
-    if (!product) {
-      return res.status(404).json({ message: "Product not found" });
-    }
+    if (!product) return res.status(404).json({ message: "Product not found" });
     res.json(product);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -28,28 +26,30 @@ const createProduct = async (req, res) => {
   try {
     const { name, path, description, imageMetadata } = req.body;
 
-    if (!name || !path || !description) {
-      return res.status(400).json({ message: "Name, path, and description are required" });
-    }
-
     let imageVariants = [];
     try {
       imageVariants = imageMetadata ? JSON.parse(imageMetadata) : [];
     } catch (e) {
-      return res.status(400).json({ message: "Invalid images metadata format" });
+      return res.status(400).json({ message: "Invalid image metadata" });
     }
 
     const processedImages = imageVariants.map((variant, index) => {
       const file = req.files?.[index];
       return {
         productHeading: variant.productHeading || "",
-        url: file ? `/uploads/${file.filename}` : null,
+        url: file ? file.path : null,           // Cloudinary returns full URL in .path
         price: Number(variant.price) || 0,
         specs: variant.specs || []
       };
     });
 
-    const newProduct = new Product({ name, path, description, images: processedImages });
+    const newProduct = new Product({
+      name,
+      path,
+      description,
+      images: processedImages
+    });
+
     const savedProduct = await newProduct.save();
     res.status(201).json(savedProduct);
   } catch (err) {
@@ -67,18 +67,16 @@ const updateProduct = async (req, res) => {
     try {
       incomingVariants = imageMetadata ? JSON.parse(imageMetadata) : [];
     } catch (e) {
-      return res.status(400).json({ message: "Invalid metadata format" });
+      return res.status(400).json({ message: "Invalid metadata" });
     }
 
     let fileIndex = 0;
     const processedImages = incomingVariants.map((variant) => {
       let finalUrl = variant.existingUrl;
 
-      if (!variant.existingUrl || variant.existingUrl === "null" || variant.existingUrl === "") {
-        if (req.files && req.files[fileIndex]) {
-          finalUrl = `/uploads/${req.files[fileIndex].filename}`;
-          fileIndex++;
-        }
+      if (!finalUrl && req.files && req.files[fileIndex]) {
+        finalUrl = req.files[fileIndex].path;   // Cloudinary URL
+        fileIndex++;
       }
 
       return {
@@ -112,7 +110,6 @@ const deleteProduct = async (req, res) => {
   }
 };
 
-// 6. Exports
 module.exports = {
   getAllProducts,
   getProductById,
