@@ -25,7 +25,7 @@ app.use(cors());
 
 
 app.use(cors({
-  origin: ['https://shri-components-frontend-cloe.vercel.app'], 
+  origin: ['https://www.shricomponents.in'], 
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true                  
